@@ -37,11 +37,11 @@ export const updateSettings = async (req, res) => {
         for (const [key, value] of Object.entries(settingsToUpdate)) {
             try {
                 await query(
-                    `INSERT INTO system_settings (key, value, updated_by)
-                     VALUES ($1, $2, $3)
+                    `INSERT INTO system_settings (key, value)
+                     VALUES ($1, $2)
                      ON CONFLICT (key) 
-                     DO UPDATE SET value = $2, updated_by = $3, updated_at = NOW()`,
-                    [key, value, req.user.id]
+                     DO UPDATE SET value = $2, updated_at = NOW()`,
+                    [key, value]
                 );
             } catch (dbError) {
                 console.error(`Database error updating key ${key}:`, dbError);
