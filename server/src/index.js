@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -75,6 +76,19 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/tags', tagsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/webhook', webhookRoutes);
+
+// Serve Frontend in Production
+if (config.NODE_ENV === 'production') {
+    const __dirname = path.resolve();
+    // The Dockerfile copies dist to /app/server/public/dist
+    const buildPath = path.join(__dirname, 'public', 'dist');
+
+    app.use(express.static(buildPath));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(buildPath, 'index.html'));
+    });
+}
 
 // 404 Handler
 app.use((req, res) => {
