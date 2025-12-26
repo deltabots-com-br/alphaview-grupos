@@ -3,10 +3,22 @@ import { config } from './index.js';
 
 // Create Redis client
 // Create Redis client
-const redisConfig = config.REDIS_URL || {
-    host: 'localhost',
-    port: 6379,
-};
+let redisConfig = config.REDIS_URL;
+
+// Handle cases where REDIS_URL might be set to 'default' or be invalid
+if (!redisConfig || redisConfig === 'default') {
+    console.warn('⚠️ REDIS_URL is missing or set to "default". Falling back to localhost:6379');
+    redisConfig = {
+        host: 'localhost',
+        port: 6379,
+    };
+} else {
+    // Basic obscuring for logs
+    const logUrl = typeof redisConfig === 'string'
+        ? redisConfig.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@')
+        : JSON.stringify(redisConfig);
+    console.log(`🔌 Attempting to connect to Redis using config: ${logUrl}`);
+}
 
 export const redis = new Redis(redisConfig, {
     maxRetriesPerRequest: null,
