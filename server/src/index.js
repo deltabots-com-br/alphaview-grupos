@@ -149,11 +149,11 @@ process.on('SIGTERM', async () => {
     isShuttingDown = true;
     console.log('SIGTERM received, starting graceful shutdown...');
 
-    // Give ongoing operations 10 seconds to complete
+    // Give ongoing operations 60 seconds to complete
     setTimeout(() => {
         console.warn('⚠️ Forced shutdown after timeout');
         process.exit(1);
-    }, 10000);
+    }, 60000);
 
     try {
         await pool.end();

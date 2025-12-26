@@ -169,33 +169,53 @@ export const importWhatsAppGroups = async (req, res) => {
 
                 const conversationId = result.rows[0].id;
 
-                // Importar participantes
+                // Importar participantes usando BATCH INSERT
                 const participants = group.participants || [];
                 let participantsImported = 0;
-                for (const participant of participants) {
-                    try {
-                        // Mapeamento robusto de participantes
-                        const phone = participant.id || participant.jid || participant.user || participant._serialized;
-                        const name = participant.pushName || participant.notify || participant.name || 'Participante';
-                        const isAdmin = participant.admin === 'admin' ||
-                            participant.admin === 'superadmin' ||
-                            participant.admin === true ||
-                            participant.isAdmin === true;
 
-                        if (!phone) {
-                            console.warn('⚠️ Participant without phone, skipping');
-                            continue;
+                if (participants.length > 0) {
+                    try {
+                        // Preparar dados válidos de participantes
+                        const validParticipants = [];
+                        for (const participant of participants) {
+                            const phone = participant.id || participant.jid || participant.user || participant._serialized;
+                            const name = participant.pushName || participant.notify || participant.name || 'Participante';
+                            const isAdmin = participant.admin === 'admin' ||
+                                participant.admin === 'superadmin' ||
+                                participant.admin === 'true' ||
+                                participant.isAdmin === true;
+
+                            if (phone) {
+                                validParticipants.push({
+                                    phone,
+                                    name,
+                                    role: isAdmin ? 'admin' : 'member'
+                                });
+                            }
                         }
 
-                        await query(
-                            `INSERT INTO participants (conversation_id, phone, display_name, role)
-                             VALUES ($1, $2, $3, $4)
-                             ON CONFLICT DO NOTHING`,
-                            [conversationId, phone, name, isAdmin ? 'admin' : 'member']
-                        );
-                        participantsImported++;
+                        // Batch insert de todos os participantes de uma vez
+                        if (validParticipants.length > 0) {
+                            const values = validParticipants.map((p, index) => {
+                                const offset = index * 3;
+                                return `($1, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+                            }).join(', ');
+
+                            const params = [conversationId];
+                            validParticipants.forEach(p => {
+                                params.push(p.phone, p.name, p.role);
+                            });
+
+                            await query(
+                                `INSERT INTO participants (conversation_id, phone, display_name, role)
+                                 VALUES ${values}
+                                 ON CONFLICT DO NOTHING`,
+                                params
+                            );
+                            participantsImported = validParticipants.length;
+                        }
                     } catch (err) {
-                        console.error('❌ Error importing participant:', err.message);
+                        console.error('❌ Error importing participants:', err.message);
                     }
                 }
 
