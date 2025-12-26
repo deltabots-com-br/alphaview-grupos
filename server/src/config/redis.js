@@ -2,9 +2,16 @@ import Redis from 'ioredis';
 import { config } from './index.js';
 
 // Create Redis client
-export const redis = new Redis(config.REDIS_URL, {
+// Create Redis client
+const redisConfig = config.REDIS_URL || {
+    host: 'localhost',
+    port: 6379,
+};
+
+export const redis = new Redis(redisConfig, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    family: 0, // Force IPv4 or auto-detect, helps with ECONNREFUSED ::1 issues
     retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
         return delay;
