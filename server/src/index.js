@@ -22,7 +22,10 @@ import webhookRoutes from './routes/webhook.js';
 const app = express();
 
 // Security Middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
 app.use(cors({
     origin: [config.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174'],
     credentials: true
