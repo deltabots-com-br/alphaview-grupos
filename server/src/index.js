@@ -86,6 +86,11 @@ if (config.NODE_ENV === 'production') {
     // Check if dist exists
     if (fs.existsSync(buildPath)) {
         console.log('✅ Build path exists');
+        if (fs.existsSync(path.join(buildPath, 'index.html'))) {
+            console.log('✅ index.html found in build path');
+        } else {
+            console.error('❌ index.html MISSING in build path');
+        }
     } else {
         console.error('❌ Build path DOES NOT exist');
     }
@@ -93,7 +98,13 @@ if (config.NODE_ENV === 'production') {
     app.use(express.static(buildPath));
 
     app.get('*', (req, res) => {
-        res.sendFile(path.join(buildPath, 'index.html'));
+        console.log(`📥 Serving frontend for path: ${req.path}`);
+        res.sendFile(path.join(buildPath, 'index.html'), (err) => {
+            if (err) {
+                console.error('❌ Error serving index.html:', err);
+                res.status(500).send('Error loading frontend');
+            }
+        });
     });
 }
 
