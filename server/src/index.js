@@ -6,6 +6,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import { config } from './config/index.js';
 import pool from './config/database.js';
+import fs from 'fs';
 // Redis removed
 
 // Import routes
@@ -78,6 +79,16 @@ if (config.NODE_ENV === 'production') {
     const __dirname = path.resolve();
     // The Dockerfile copies dist to /app/server/public/dist
     const buildPath = path.join(__dirname, 'public', 'dist');
+
+    console.log(`📂 Static files path: ${buildPath}`);
+    console.log(`📦 Environment: ${config.NODE_ENV}`);
+
+    // Check if dist exists
+    if (fs.existsSync(buildPath)) {
+        console.log('✅ Build path exists');
+    } else {
+        console.error('❌ Build path DOES NOT exist');
+    }
 
     app.use(express.static(buildPath));
 

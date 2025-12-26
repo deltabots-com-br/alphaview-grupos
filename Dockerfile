@@ -8,6 +8,7 @@ RUN npm run build
 
 # Setup Backend
 FROM node:20-alpine
+ENV NODE_ENV=production
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --production
