@@ -56,6 +56,33 @@ const Chat = () => {
 
     const selectedChat = chats.find(c => c.id === selectedChatId);
 
+    // Load messages when a chat is selected
+    useEffect(() => {
+        if (selectedChatId && selectedChat) {
+            // Only load if messages haven't been loaded yet
+            if (!selectedChat.messages || selectedChat.messages.length === 0) {
+                api.getMessages(selectedChatId)
+                    .then(messages => {
+                        setData(prevData => ({
+                            ...prevData,
+                            chats: prevData.chats.map(chat => {
+                                if (chat.id === selectedChatId) {
+                                    return {
+                                        ...chat,
+                                        messages: messages || []
+                                    };
+                                }
+                                return chat;
+                            })
+                        }));
+                    })
+                    .catch(error => {
+                        console.error('Error loading messages:', error);
+                    });
+            }
+        }
+    }, [selectedChatId, selectedChat?.id]);
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
