@@ -7,7 +7,8 @@ import {
     deleteConversation,
     getConversationMembers,
     addMember,
-    removeMember
+    removeMember,
+    createGroupViaEvolution
 } from '../controllers/conversationsController.js';
 import { authenticate, requireAdmin } from '../middleware/permissions.js';
 
@@ -24,6 +25,9 @@ router.get('/:id', getConversation);
 
 // Criar conversa (apenas admin)
 router.post('/', requireAdmin, createConversation);
+
+// Criar grupo via Evolution API (apenas admin)
+router.post('/create-whatsapp-group', requireAdmin, createGroupViaEvolution);
 
 // Atualizar conversa (apenas admin)
 router.put('/:id', requireAdmin, updateConversation);

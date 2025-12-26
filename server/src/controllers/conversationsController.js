@@ -206,3 +206,122 @@ export const removeMember = async (req, res) => {
         res.status(500).json({ error: 'Failed to remove member' });
     }
 };
+
+// Criar grupo via Evolution API
+export const createGroupViaEvolution = async (req, res) => {
+    try {
+        const { name, description, participants } = req.body;
+        const createdBy = req.user.id;
+
+        // Validações básicas
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: 'Group name is required' });
+        }
+
+        if (!participants || !Array.isArray(participants) || participants.length === 0) {
+            return res.status(400).json({ error: 'At least one participant is required to create a WhatsApp group' });
+        }
+
+        // Validar formato dos telefones
+        const invalidPhones = participants.filter(phone => !/^\d+$/.test(phone));
+        if (invalidPhones.length > 0) {
+            return res.status(400).json({
+                error: 'Invalid phone numbers. Use only digits (e.g., 5531900000000)',
+                invalidPhones
+            });
+        }
+
+        // Buscar configurações Evolution API
+        const settingsResult = await query(
+            `SELECT key, value FROM system_settings 
+             WHERE key IN ('evolution_api_base_url', 'evolution_api_token', 'evolution_api_instance')`
+        );
+
+        const settings = {};
+        settingsResult.rows.forEach(row => {
+            settings[row.key] = row.value;
+        });
+
+        if (!settings.evolution_api_base_url || !settings.evolution_api_token || !settings.evolution_api_instance) {
+            return res.status(400).json({
+                error: 'Evolution API not configured. Please configure Evolution API settings first.'
+            });
+        }
+
+        // Preparar chamada à Evolution API
+        const cleanBaseUrl = settings.evolution_api_base_url.replace(/\/$/, '');
+        const instanceName = settings.evolution_api_instance;
+        const evolutionUrl = `${cleanBaseUrl}/group/create/${instanceName}`;
+
+        console.log('🔄 Creating group via Evolution API:', evolutionUrl);
+        console.log('📋 Group data:', { subject: name, description, participants: participants.length });
+
+        // Chamar Evolution API
+        const response = await fetch(evolutionUrl, {
+            method: 'POST',
+            headers: {
+                'apikey': settings.evolution_api_token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                subject: name,
+                description: description || '',
+                participants: participants
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Evolution API error:', response.status, errorText);
+            return res.status(response.status).json({
+                error: 'Failed to create group in WhatsApp',
+                details: errorText
+            });
+        }
+
+        const evolutionGroup = await response.json();
+        console.log('✅ Group created in WhatsApp:', evolutionGroup.id || evolutionGroup.groupId);
+
+        // Extrair ID do grupo retornado pela Evolution
+        const whatsappGroupId = evolutionGroup.id || evolutionGroup.groupId || null;
+
+        // Salvar grupo no banco de dados local
+        const dbResult = await query(
+            `INSERT INTO conversations (name, description, is_group, max_members, created_by, zapi_id)
+             VALUES ($1, $2, true, 256, $3, $4)
+             RETURNING *`,
+            [name, description || null, createdBy, whatsappGroupId]
+        );
+
+        const localGroup = dbResult.rows[0];
+
+        // Salvar participantes no banco
+        if (participants.length > 0) {
+            const participantValues = participants.map((phone, index) =>
+                `($1, $${index + 2}, false)`
+            ).join(', ');
+
+            await query(
+                `INSERT INTO participants (conversation_id, phone, is_admin)
+                 VALUES ${participantValues}`,
+                [localGroup.id, ...participants]
+            );
+        }
+
+        console.log('✅ Group saved to database:', localGroup.id);
+
+        res.status(201).json({
+            ...localGroup,
+            whatsappGroupId,
+            participantsCount: participants.length,
+            message: 'Group created successfully in WhatsApp and synced to database'
+        });
+
+    } catch (error) {
+        console.error('❌ Create group via Evolution error:', error);
+        res.status(500).json({
+            error: 'Failed to create group',
+            details: error.message
+        });
+    }
+};

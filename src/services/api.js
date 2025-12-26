@@ -122,14 +122,13 @@ export const api = {
 
     getConversation: (id) => request(`/conversations/${id}`),
 
-    createGroup: async (name) => {
-        return request('/conversations', {
+    createGroup: async (name, description = '', participants = []) => {
+        return request('/conversations/create-whatsapp-group', {
             method: 'POST',
             body: {
                 name,
-                description: '',
-                is_group: true,
-                max_members: 256
+                description,
+                participants
             }
         });
     },

@@ -13,6 +13,8 @@ const Groups = () => {
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupDescription, setNewGroupDescription] = useState('');
     const [newGroupTags, setNewGroupTags] = useState([]);
+    const [newGroupParticipants, setNewGroupParticipants] = useState([]);
+    const [currentPhone, setCurrentPhone] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTags, setSelectedTags] = useState([]);
@@ -43,28 +45,65 @@ const Groups = () => {
     }, [groups, searchTerm, selectedTags]);
 
     const handleCreate = async () => {
+        if (newGroupParticipants.length === 0) {
+            alert('Adicione pelo menos 1 participante para criar o grupo no WhatsApp');
+            return;
+        }
+
         setIsLoading(true);
-        const newGroup = await api.createGroup(newGroupName);
+        try {
+            const newGroup = await api.createGroup(newGroupName, newGroupDescription, newGroupParticipants);
 
-        // Add tags and description to the new group
-        newGroup.tags = newGroupTags;
-        newGroup.description = newGroupDescription;
+            // Add tags to the new group
+            newGroup.tags = newGroupTags;
 
-        setData(prev => ({
-            ...prev,
-            groups: [newGroup, ...prev.groups],
-            metrics: { ...prev.metrics, totalGroups: prev.metrics.totalGroups + 1 }
-        }));
+            setData(prev => ({
+                ...prev,
+                groups: [newGroup, ...prev.groups],
+                metrics: { ...prev.metrics, totalGroups: prev.metrics.totalGroups + 1 }
+            }));
 
-        setIsLoading(false);
-        closeModal();
+            closeModal();
+        } catch (error) {
+            console.error('Erro ao criar grupo:', error);
+            alert(error.message || 'Erro ao criar grupo. Verifique as configurações da Evolution API.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const closeModal = () => {
         setNewGroupName('');
         setNewGroupDescription('');
         setNewGroupTags([]);
+        setNewGroupParticipants([]);
+        setCurrentPhone('');
         setModalOpen(false);
+    };
+
+    const handleAddParticipant = () => {
+        if (!currentPhone.trim()) {
+            return;
+        }
+
+        // Validar formato: apenas números
+        if (!/^\d+$/.test(currentPhone)) {
+            alert('Telefone inválido. Use apenas números (ex: 5531900000000)');
+            return;
+        }
+
+        // Evitar duplicatas
+        if (newGroupParticipants.includes(currentPhone)) {
+            alert('Este participante já foi adicionado');
+            return;
+        }
+
+        setNewGroupParticipants(prev => [...prev, currentPhone]);
+        setCurrentPhone('');
+    };
+
+    const handleRemoveParticipant = (phone) => {
+        setNewGroupParticipants(prev => prev.filter(p => p !== phone));
     };
 
     const handleOpenChat = (groupId) => {
@@ -353,12 +392,73 @@ const Groups = () => {
                         />
                     </div>
 
+                    {/* Participantes Section */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Participantes Iniciais *</label>
+
+                        {/* Input para adicionar participante */}
+                        <div className="flex gap-2 mb-3">
+                            <input
+                                type="text"
+                                value={currentPhone}
+                                onChange={(e) => setCurrentPhone(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddParticipant())}
+                                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                placeholder="5531900000000"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleAddParticipant}
+                                className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium"
+                            >
+                                + Adicionar
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-500 mb-3">
+                            <strong>Formato:</strong> Apenas números (ex: 5531900000000 para Brasil)
+                        </p>
+
+                        {/* Lista de participantes adicionados */}
+                        {newGroupParticipants.length > 0 && (
+                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 max-h-32 overflow-y-auto">
+                                {newGroupParticipants.map((phone, index) => (
+                                    <div key={phone} className="flex items-center justify-between py-1.5 px-2 bg-white rounded mb-1.5 last:mb-0">
+                                        <span className="text-sm text-slate-700 flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-400">{index + 1}.</span>
+                                            📱 {phone}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveParticipant(phone)}
+                                            className="text-red-500 hover:text-red-700 text-sm font-medium"
+                                        >
+                                            ✖
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Alert sobre mínimo de participantes */}
+                        <div className={`mt-3 p-2.5 rounded-lg text-xs ${newGroupParticipants.length === 0
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                : 'bg-green-50 text-green-800 border border-green-200'
+                            }`}>
+                            {newGroupParticipants.length === 0 ? (
+                                <span>⚠️ Adicione pelo menos 1 participante para criar o grupo</span>
+                            ) : (
+                                <span>✅ {newGroupParticipants.length} participante(s) adicionado(s)</span>
+                            )}
+                        </div>
+                    </div>
+
                     <button
                         onClick={handleCreate}
-                        disabled={!newGroupName || isLoading}
+                        disabled={!newGroupName || newGroupParticipants.length === 0 || isLoading}
                         className="w-full bg-gradient-to-r from-brand-600 to-brand-700 text-white py-2 rounded-lg font-medium hover:from-brand-700 hover:to-brand-800 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center transition-all"
                     >
-                        {isLoading ? <RefreshCcw className="animate-spin" size={20} /> : 'Criar Grupo'}
+                        {isLoading ? <RefreshCcw className="animate-spin" size={20} /> : 'Criar Grupo no WhatsApp'}
                     </button>
                 </div>
             </Modal>
