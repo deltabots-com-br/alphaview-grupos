@@ -320,7 +320,7 @@ const Chat = () => {
 
                         {/* Messages - WhatsApp Native */}
                         <div className="flex-1 overflow-y-auto px-3 md:px-4 py-3 bg-[#e5ddd5] space-y-2">
-                            {selectedChat.messages.map((msg) => (
+                            {(selectedChat.messages || []).map((msg) => (
                                 <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[70%] md:max-w-[70%] rounded-lg px-3 py-2 shadow-sm ${msg.isMe
                                         ? 'bg-[#d9fdd3] text-slate-900'
