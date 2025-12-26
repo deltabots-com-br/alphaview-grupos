@@ -12,6 +12,7 @@ const Settings = () => {
     const [editingUser, setEditingUser] = useState(null);
     const [copied, setCopied] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [importingMessages, setImportingMessages] = useState(false);
 
     // Z-API Settings
     // Evolution API Settings
@@ -89,6 +90,41 @@ const Settings = () => {
             console.error(error);
         } finally {
             setImporting(false);
+        }
+    };
+
+    const handleImportMessages = async (groupId) => {
+        if (!groupId) {
+            alert('Selecione um grupo para importar mensagens');
+            return;
+        }
+
+        setImportingMessages(true);
+        try {
+            // Solicita limite de mensagens (padrão 100)
+            const limitInput = prompt('Quantas mensagens importar? (máximo recomendado: 100)', '100');
+            if (!limitInput) {
+                setImportingMessages(false);
+                return;
+            }
+
+            const limit = parseInt(limitInput);
+            const result = await api.importGroupMessages(groupId, limit);
+
+            alert(`Importação de mensagens concluída!
+Grupo: ${result.group}
+Total recebido: ${result.total}
+Importadas: ${result.imported}
+Ignoradas: ${result.skipped}`);
+
+            // Recarregar dados para mostrar mensagens
+            const newData = await api.getInitialData();
+            setData(newData);
+        } catch (error) {
+            alert(`Erro na importação de mensagens: ${error.message}`);
+            console.error(error);
+        } finally {
+            setImportingMessages(false);
         }
     };
 
@@ -318,6 +354,38 @@ const Settings = () => {
                             {importing ? 'Importando...' : 'Importar Grupos do WhatsApp'}
                         </button>
                     </div>
+
+                    {/* Importar Mensagens */}
+                    {data?.chats && data.chats.length > 0 && (
+                        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <h4 className="text-sm font-semibold text-slate-800 mb-2">Importar Mensagens Históricas</h4>
+                            <p className="text-xs text-slate-600 mb-3">
+                                Importe mensagens antigas de um groupe específico (limite: 100 mensagens por importação)
+                            </p>
+                            <div className="flex gap-2">
+                                <select
+                                    id="groupSelect"
+                                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white text-sm"
+                                >
+                                    <option value="">Selecione um grupo...</option>
+                                    {data.chats.filter(c => c.is_group).map(group => (
+                                        <option key={group.id} value={group.id}>{group.name}</option>
+                                    ))}
+                                </select>
+                                <button
+                                    onClick={() => {
+                                        const select = document.getElementById('groupSelect');
+                                        handleImportMessages(select.value);
+                                    }}
+                                    disabled={importingMessages}
+                                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 whitespace-nowrap text-sm"
+                                >
+                                    <Download size={16} />
+                                    {importingMessages ? 'Importando...' : 'Importar Mensagens'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
