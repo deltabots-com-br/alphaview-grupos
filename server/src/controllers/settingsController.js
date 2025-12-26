@@ -24,21 +24,35 @@ export const getSettings = async (req, res) => {
 export const updateSettings = async (req, res) => {
     try {
         const settingsToUpdate = req.body; // Objeto com key-value pairs
+        console.log('Update Settings Request:', {
+            user: req.user,
+            keys: Object.keys(settingsToUpdate)
+        });
+
+        if (!req.user || !req.user.id) {
+            console.error('User ID missing in request');
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
 
         for (const [key, value] of Object.entries(settingsToUpdate)) {
-            await query(
-                `INSERT INTO system_settings (key, value, updated_by)
-                 VALUES ($1, $2, $3)
-                 ON CONFLICT (key) 
-                 DO UPDATE SET value = $2, updated_by = $3, updated_at = NOW()`,
-                [key, value, req.user.id]
-            );
+            try {
+                await query(
+                    `INSERT INTO system_settings (key, value, updated_by)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (key) 
+                     DO UPDATE SET value = $2, updated_by = $3, updated_at = NOW()`,
+                    [key, value, req.user.id]
+                );
+            } catch (dbError) {
+                console.error(`Database error updating key ${key}:`, dbError);
+                throw dbError; // Re-throw to hit main catch block
+            }
         }
 
         res.json({ message: 'Settings updated successfully' });
     } catch (error) {
         console.error('Update settings error:', error);
-        res.status(500).json({ error: 'Failed to update settings' });
+        res.status(500).json({ error: 'Failed to update settings', details: error.message });
     }
 };
 
