@@ -1,0 +1,751 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+LayoutDashboard,
+Users,
+MessageSquare,
+Settings,
+Plus,
+Search,
+Bell,
+LogOut,
+QrCode,
+RefreshCcw,
+Trash2,
+UserPlus,
+TrendingUp,
+Activity,
+CheckCircle,
+AlertCircle,
+Send,
+Paperclip,
+MoreVertical,
+ArrowLeft,
+Phone,
+Video,
+MessageCircle
+} from 'lucide-react';
+
+// --- MOCK DATABASE & SERVICE LAYER ---
+
+const MOCK_DB = {
+currentUser: {
+id: 1,
+name: 'Admin Mestre',
+email: 'admin@alphatech.com',
+role: 'admin',
+companyId: 'comp_01'
+},
+company: {
+id: 'comp_01',
+name: 'Alpha Tech Ltda',
+plan: 'enterprise',
+zapiStatus: 'connected',
+zapiInstanceId: 'inst_882910'
+},
+groups: [
+{ id: 'g1', name: 'Lançamento Black Friday', members: 245, maxMembers: 1024, status: 'active', lastActivity: '2 min
+atrás', image: 'BF' },
+{ id: 'g2', name: 'Suporte VIP #01', members: 128, maxMembers: 256, status: 'active', lastActivity: '1 hora atrás',
+image: 'SP' },
+{ id: 'g3', name: 'Leads Frios - Outubro', members: 890, maxMembers: 1024, status: 'paused', lastActivity: '3 dias
+atrás', image: 'LF' },
+{ id: 'g4', name: 'Comunidade Geral', members: 50, maxMembers: 1024, status: 'active', lastActivity: 'Agora', image:
+'CG' },
+],
+chats: [
+{
+id: 'g1', // ID igual ao do grupo g1
+name: 'Lançamento Black Friday',
+type: 'group',
+image: 'BF',
+unread: 3,
+lastMessage: 'Carlos: Alguém tem o link do checkout?',
+time: '10:45',
+messages: [
+{ id: 1, text: 'Bom dia pessoal! A live começa em 1h.', sender: 'Me', time: '09:00', isMe: true },
+{ id: 2, text: 'Ansioso por aqui!', sender: 'João Silva', time: '09:15', isMe: false, color: 'text-orange-600' },
+{ id: 3, text: 'Vai ter replay?', sender: 'Maria Oliveira', time: '09:20', isMe: false, color: 'text-purple-600' },
+{ id: 4, text: 'Sim, vamos enviar o replay no e-mail.', sender: 'Suporte', time: '09:25', isMe: true },
+{ id: 5, text: 'Alguém tem o link do checkout?', sender: 'Carlos', time: '10:45', isMe: false, color: 'text-blue-600' }
+]
+},
+{
+id: 'g2', // ID igual ao do grupo g2
+name: 'Suporte VIP #01',
+type: 'group',
+image: 'SP',
+unread: 0,
+lastMessage: 'Obrigado pela ajuda!',
+time: 'Ontem',
+messages: [
+{ id: 1, text: 'Preciso de ajuda com o módulo 3', sender: 'Pedro', time: '14:00', isMe: false, color: 'text-pink-600' },
+{ id: 2, text: 'Oi Pedro, qual sua dúvida?', sender: 'Me', time: '14:05', isMe: true },
+{ id: 3, text: 'Obrigado pela ajuda!', sender: 'Pedro', time: '14:10', isMe: false, color: 'text-pink-600' }
+]
+},
+{
+id: 'c3',
+name: '(11) 99999-8888',
+type: 'private',
+image: 'U',
+unread: 1,
+lastMessage: 'Tenho interesse na mentoria.',
+time: '08:30',
+messages: [
+{ id: 1, text: 'Olá, vi seu anúncio no Instagram.', sender: 'Participante', time: '08:29', isMe: false },
+{ id: 2, text: 'Tenho interesse na mentoria.', sender: 'Participante', time: '08:30', isMe: false }
+]
+}
+],
+metrics: {
+totalGroups: 12,
+totalParticipants: 4502,
+totalMessages: 15420,
+churnRate: '2.4%'
+}
+};
+
+const api = {
+getDashboardData: () => new Promise(resolve => setTimeout(() => resolve(JSON.parse(JSON.stringify(MOCK_DB))), 800)),
+createGroup: (groupName) => new Promise(resolve => {
+setTimeout(() => {
+const newGroup = {
+id: `g${Math.random().toString(36).substr(2, 5)}`,
+name: groupName,
+members: 1,
+maxMembers: 1024,
+status: 'active',
+lastActivity: 'Agora',
+image: groupName.substring(0, 2).toUpperCase()
+};
+resolve(newGroup);
+}, 1000);
+}),
+toggleZapiConnection: (currentStatus) => new Promise(resolve => {
+setTimeout(() => resolve(currentStatus === 'connected' ? 'disconnected' : 'connected'), 1500);
+}),
+sendMessage: (chatId, text) => new Promise(resolve => {
+setTimeout(() => {
+resolve({
+id: Math.random(),
+text,
+sender: 'Me',
+time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+isMe: true
+});
+}, 300);
+})
+};
+
+// --- COMPONENTS ---
+
+const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
+<div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
+    <div>
+        <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
+        <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
+        <p className={`text-xs mt-2 ${subtext.includes('+') ? 'text-emerald-600' : 'text-slate-400' }`}>
+            {subtext}
+        </p>
+    </div>
+    <div className={`p-3 rounded-lg ${color}`}>
+        <Icon size={20} className="text-white" />
+    </div>
+</div>
+);
+
+const SidebarItem = ({ icon: Icon, label, active, onClick, badge }) => (
+<button onClick={onClick} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors
+    duration-200 ${active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50' }`}>
+    <div className="flex items-center space-x-3">
+        <Icon size={20} />
+        <span className="font-medium text-sm">{label}</span>
+    </div>
+    {badge && (
+    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+        {badge}
+    </span>
+    )}
+</button>
+);
+
+const Modal = ({ isOpen, onClose, title, children }) => {
+if (!isOpen) return null;
+return (
+<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
+        <div className="flex justify-between items-center p-4 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">{title}</h3>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                <Plus size={24} className="transform rotate-45" />
+            </button>
+        </div>
+        <div className="p-6">
+            {children}
+        </div>
+    </div>
+</div>
+);
+};
+
+// --- VIEWS ---
+
+const DashboardView = ({ data }) => {
+if (!data) return <div className="p-10 text-center">Carregando métricas...</div>;
+
+return (
+<div className="space-y-6 animate-fade-in-up">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total de Grupos" value={data.metrics.totalGroups} subtext="+2 novos hoje" icon={MessageSquare}
+            color="bg-blue-500" />
+        <StatCard title="Total de Participantes" value={data.metrics.totalParticipants} subtext="+12% vs mês anterior"
+            icon={Users} color="bg-indigo-500" />
+        <StatCard title="Mensagens Trocadas" value={data.metrics.totalMessages} subtext="Nas últimas 24h"
+            icon={Activity} color="bg-emerald-500" />
+        <StatCard title="Taxa de Saída" value={data.metrics.churnRate} subtext="Estável" icon={TrendingUp}
+            color="bg-amber-500" />
+    </div>
+
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <h3 className="font-bold text-slate-800 mb-4">Atividade de Entrada (Últimos 7 dias)</h3>
+        <div className="h-48 flex items-end justify-between space-x-2 px-2">
+            {[40, 65, 30, 80, 95, 55, 70].map((height, i) => (
+            <div key={i} className="w-full bg-indigo-50 rounded-t-lg relative group">
+                <div style={{ height: `${height}%` }}
+                    className="absolute bottom-0 w-full bg-indigo-500 rounded-t-lg transition-all duration-500 hover:bg-indigo-600">
+                </div>
+            </div>
+            ))}
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-slate-400">
+            <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sab</span><span>Dom</span>
+        </div>
+    </div>
+</div>
+);
+};
+
+const ChatView = ({ chats: initialChats, selectedChatId, onSelectChat }) => {
+const [chats, setChats] = useState(initialChats);
+const [messageInput, setMessageInput] = useState('');
+const messagesEndRef = useRef(null);
+
+// Sincroniza chats internos com props se initialChats mudar
+useEffect(() => {
+if(initialChats) setChats(initialChats);
+}, [initialChats]);
+
+const selectedChat = chats.find(c => c.id === selectedChatId);
+
+const scrollToBottom = () => {
+messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+};
+
+useEffect(() => {
+scrollToBottom();
+}, [selectedChat?.messages, selectedChatId]);
+
+const handleSendMessage = async (e) => {
+e.preventDefault();
+if (!messageInput.trim() || !selectedChatId) return;
+
+const newMessage = await api.sendMessage(selectedChatId, messageInput);
+
+setChats(prevChats => prevChats.map(chat => {
+if (chat.id === selectedChatId) {
+return {
+...chat,
+messages: [...chat.messages, newMessage],
+lastMessage: newMessage.text,
+time: newMessage.time
+};
+}
+return chat;
+}));
+
+setMessageInput('');
+};
+
+return (
+<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[calc(100vh-140px)] flex">
+
+    {/* Sidebar de Chats */}
+    <div className={`w-full md:w-80 border-r border-slate-200 flex flex-col ${selectedChatId ? 'hidden md:flex' : 'flex'
+        }`}>
+        <div className="p-4 border-b border-slate-100 bg-slate-50">
+            <div className="relative">
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                <input type="text" placeholder="Buscar conversas..."
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+            {chats.map(chat => (
+            <div key={chat.id} onClick={()=> onSelectChat(chat.id)}
+                className={`p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors
+                ${selectedChatId === chat.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
+                >
+                <div className="flex justify-between items-start mb-1">
+                    <div className="flex items-center space-x-3">
+                        <div
+                            className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs flex-shrink-0">
+                            {chat.image}
+                        </div>
+                        <div className="overflow-hidden">
+                            <h4 className="font-semibold text-slate-800 text-sm truncate">{chat.name}</h4>
+                            <p className="text-xs text-slate-500 truncate">{chat.lastMessage}</p>
+                        </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                        <span className="text-[10px] text-slate-400 block">{chat.time}</span>
+                        {chat.unread > 0 && (
+                        <span
+                            className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-1 inline-block">
+                            {chat.unread}
+                        </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+            ))}
+        </div>
+    </div>
+
+    {/* Área de Chat Principal */}
+    <div className={`flex-1 flex flex-col bg-[#efeae2] ${!selectedChatId ? 'hidden md:flex' : 'flex' }`}>
+        {selectedChat ? (
+        <>
+            {/* Chat Header */}
+            <div
+                className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center shadow-sm z-10">
+                <div className="flex items-center space-x-3">
+                    <button onClick={()=> onSelectChat(null)} className="md:hidden text-slate-500">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div
+                        className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                        {selectedChat.image}
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-sm">{selectedChat.name}</h3>
+                        <p className="text-xs text-slate-500">
+                            {selectedChat.type === 'group' ? 'Grupo • via Z-API' : 'Contato Privado'}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center space-x-3 text-slate-500">
+                    <Search size={20} className="cursor-pointer hover:text-indigo-600" />
+                    <MoreVertical size={20} className="cursor-pointer hover:text-indigo-600" />
+                </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div
+                className="flex-1 overflow-y-auto p-4 space-y-3 bg-opacity-50 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]">
+                {selectedChat.messages.map((msg) => (
+                <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start' }`}>
+                    <div className={`max-w-[80%] md:max-w-[60%] rounded-lg px-3 py-2 shadow-sm text-sm ${ msg.isMe
+                        ? 'bg-[#d9fdd3] text-slate-800 rounded-tr-none' : 'bg-white text-slate-800 rounded-tl-none' }`}>
+                        {!msg.isMe && selectedChat.type === 'group' && (
+                        <p className={`text-[10px] font-bold mb-0.5 ${msg.color || 'text-slate-500' }`}>{msg.sender}</p>
+                        )}
+                        <p>{msg.text}</p>
+                        <span className="text-[10px] text-slate-400 block text-right mt-1 opacity-70">
+                            {msg.time}
+                        </span>
+                    </div>
+                </div>
+                ))}
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <div className="bg-slate-100 p-3 border-t border-slate-200">
+                <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+                    <button type="button" className="text-slate-500 hover:text-indigo-600 p-2">
+                        <Paperclip size={20} />
+                    </button>
+                    <input type="text" value={messageInput} onChange={(e)=> setMessageInput(e.target.value)}
+                    placeholder="Digite uma mensagem..."
+                    className="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2
+                    focus:ring-indigo-500 bg-white"
+                    />
+                    <button type="submit" disabled={!messageInput.trim()}
+                        className="bg-indigo-600 text-white p-2 rounded-full hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <Send size={18} className="ml-0.5" />
+                    </button>
+                </form>
+            </div>
+        </>
+        ) : (
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center bg-slate-50">
+            <div className="w-32 h-32 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+                <MessageSquare size={48} className="text-slate-400" />
+            </div>
+            <h3 className="text-lg font-medium text-slate-600">Selecione uma conversa</h3>
+            <p className="text-sm mt-2 max-w-xs">Escolha um grupo ou contato na lista ao lado para começar a interagir
+                em tempo real.</p>
+        </div>
+        )}
+    </div>
+</div>
+);
+};
+
+const GroupsView = ({ groups, onAddGroup, onOpenChat }) => {
+const [isModalOpen, setModalOpen] = useState(false);
+const [newGroupName, setNewGroupName] = useState('');
+const [isLoading, setIsLoading] = useState(false);
+
+const handleCreate = async () => {
+setIsLoading(true);
+await onAddGroup(newGroupName);
+setIsLoading(false);
+setNewGroupName('');
+setModalOpen(false);
+};
+
+return (
+<div className="space-y-6 animate-fade-in-up">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <input type="text" placeholder="Buscar grupo..."
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+        </div>
+        <button onClick={()=> setModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2
+            text-sm font-medium transition-colors"
+            >
+            <Plus size={18} />
+            <span>Novo Grupo</span>
+        </button>
+    </div>
+
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-500 font-semibold">
+                <tr>
+                    <th className="px-6 py-4">Nome do Grupo</th>
+                    <th className="px-6 py-4">Participantes</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Última Atividade</th>
+                    <th className="px-6 py-4 text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+                {groups.map(group => (
+                <tr key={group.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                        <div className="flex items-center space-x-3">
+                            <div
+                                className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                                {group.image}
+                            </div>
+                            <div>
+                                <p className="font-medium text-slate-800">{group.name}</p>
+                                <p className="text-xs text-slate-400">ID: {group.id}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500" style={{ width: `${(group.members /
+                                    group.maxMembers) * 100}%` }}></div>
+                            </div>
+                            <span className="text-xs text-slate-500">{group.members}/{group.maxMembers}</span>
+                        </div>
+                    </td>
+                    <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${ group.status==='active'
+                            ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }`}>
+                            {group.status === 'active' ? 'Ativo' : 'Pausado'}
+                        </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                        {group.lastActivity}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end space-x-2">
+                            <button onClick={()=> onOpenChat(group.id)}
+                                title="Abrir Chat do Grupo"
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg
+                                transition-colors"
+                                >
+                                <MessageCircle size={18} />
+                            </button>
+                            <button title="Configurações"
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                                <Settings size={18} />
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
+
+    <Modal isOpen={isModalOpen} onClose={()=> setModalOpen(false)} title="Criar Novo Grupo">
+        <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Grupo</label>
+                <input type="text" value={newGroupName} onChange={(e)=> setNewGroupName(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2
+                focus:ring-indigo-500"
+                placeholder="Ex: Lançamento Turma 10"
+                />
+                <p className="text-xs text-slate-500 mt-1">Este nome será sincronizado com o WhatsApp via Z-API.</p>
+            </div>
+            <button onClick={handleCreate} disabled={!newGroupName || isLoading}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center">
+                {isLoading ?
+                <RefreshCcw className="animate-spin" size={20} /> : 'Criar Grupo'}
+            </button>
+        </div>
+    </Modal>
+</div>
+);
+};
+
+const SettingsView = ({ company, onToggleStatus }) => {
+const [loading, setLoading] = useState(false);
+
+const handleToggle = async () => {
+setLoading(true);
+await onToggleStatus();
+setLoading(false);
+}
+
+return (
+<div className="max-w-2xl animate-fade-in-up">
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Conexão Z-API (Número Mestre)</h3>
+        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="flex items-center space-x-4">
+                <div className={`p-3 rounded-full ${company.zapiStatus==='connected' ? 'bg-emerald-100' : 'bg-red-100'
+                    }`}>
+                    {company.zapiStatus === 'connected' ?
+                    <CheckCircle className="text-emerald-600" size={24} /> :
+                    <AlertCircle className="text-red-600" size={24} />
+                    }
+                </div>
+                <div>
+                    <p className="font-medium text-slate-800">
+                        {company.zapiStatus === 'connected' ? 'WhatsApp Conectado' : 'Desconectado'}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        {company.zapiStatus === 'connected' ? 'Instância operando normalmente.' : 'Escaneie o QR Code
+                        para conectar.'}
+                    </p>
+                </div>
+            </div>
+            <button onClick={handleToggle} disabled={loading} className={`px-4 py-2 rounded-lg text-sm font-medium
+                border transition-colors ${ company.zapiStatus==='connected'
+                ? 'border-red-200 text-red-600 hover:bg-red-50'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700 border-transparent' }`}>
+                {loading ? 'Processando...' : (company.zapiStatus === 'connected' ? 'Desconectar' : 'Conectar Agora')}
+            </button>
+        </div>
+
+        {company.zapiStatus !== 'connected' && (
+        <div
+            className="mt-6 flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 rounded-lg">
+            <QrCode size={128} className="text-slate-800 mb-4 opacity-80" />
+            <p className="text-sm text-slate-500 mb-2">Abra o WhatsApp no seu celular e escaneie.</p>
+            <p className="text-xs font-mono text-slate-400">Instance ID: {company.zapiInstanceId}</p>
+        </div>
+        )}
+    </div>
+
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Dados da Empresa</h3>
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="text-xs font-bold text-slate-400 uppercase">Empresa</label>
+                <p className="font-medium text-slate-700">{company.name}</p>
+            </div>
+            <div>
+                <label className="text-xs font-bold text-slate-400 uppercase">Plano Atual</label>
+                <p className="font-medium text-slate-700 capitalize">{company.plan}</p>
+            </div>
+            <div>
+                <label className="text-xs font-bold text-slate-400 uppercase">ID do Sistema</label>
+                <p className="font-medium text-slate-700">{company.id}</p>
+            </div>
+        </div>
+    </div>
+</div>
+)
+}
+
+// --- MAIN APP COMPONENT ---
+
+export default function App() {
+const [activeView, setActiveView] = useState('dashboard');
+const [data, setData] = useState(null);
+const [isLoading, setIsLoading] = useState(true);
+const [selectedChatId, setSelectedChatId] = useState(null);
+
+// Inicialização: Busca dados "do backend"
+useEffect(() => {
+loadData();
+}, []);
+
+const loadData = async () => {
+setIsLoading(true);
+const result = await api.getDashboardData();
+setData(result);
+setIsLoading(false);
+};
+
+const handleAddGroup = async (name) => {
+const newGroup = await api.createGroup(name);
+setData(prev => ({
+...prev,
+groups: [newGroup, ...prev.groups],
+metrics: { ...prev.metrics, totalGroups: prev.metrics.totalGroups + 1 }
+}));
+};
+
+const handleToggleZapi = async () => {
+const newStatus = await api.toggleZapiConnection(data.company.zapiStatus);
+setData(prev => ({
+...prev,
+company: { ...prev.company, zapiStatus: newStatus }
+}));
+};
+
+// Função para navegar direto para o chat
+const handleOpenChat = (groupId) => {
+// Verifica se existe um chat para este grupo, se não (ainda não implementado sync real), cria um fallback ou avisa
+// No mock, IDs são iguais
+setSelectedChatId(groupId);
+setActiveView('chat');
+};
+
+if (isLoading) {
+return (
+<div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="flex flex-col items-center space-y-4">
+        <RefreshCcw className="animate-spin text-indigo-600" size={32} />
+        <p className="text-slate-500 font-medium">Carregando Sistema Multi-Empresas...</p>
+    </div>
+</div>
+);
+}
+
+return (
+<div className="min-h-screen bg-slate-50 flex font-sans text-slate-800">
+
+    {/* SIDEBAR */}
+    <aside className="w-64 bg-white border-r border-slate-200 fixed h-full z-10 hidden md:flex flex-col">
+        <div className="p-6 border-b border-slate-100">
+            <div className="flex items-center space-x-2 text-indigo-700">
+                <MessageSquare size={28} className="fill-indigo-600 text-indigo-600" />
+                <span className="text-xl font-bold tracking-tight">ZapMaster</span>
+            </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-1">
+            <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeView==='dashboard' } onClick={()=>
+                setActiveView('dashboard')}
+                />
+                <SidebarItem icon={MessageSquare} label="Chat em Tempo Real" active={activeView==='chat' } onClick={()=>
+                    setActiveView('chat')}
+                    badge={data.chats?.filter(c => c.unread > 0).length > 0 ? data.chats.filter(c => c.unread >
+                    0).length : null}
+                    />
+                    <SidebarItem icon={Users} label="Meus Grupos" active={activeView==='groups' } onClick={()=>
+                        setActiveView('groups')}
+                        />
+                        <SidebarItem icon={UserPlus} label="Participantes" active={activeView==='members' }
+                            onClick={()=> setActiveView('members')}
+                            />
+                            <div className="pt-4 mt-4 border-t border-slate-100">
+                                <p className="px-4 text-xs font-semibold text-slate-400 uppercase mb-2">Sistema</p>
+                                <SidebarItem icon={Settings} label="Configurações & Z-API"
+                                    active={activeView==='settings' } onClick={()=> setActiveView('settings')}
+                                    />
+                            </div>
+        </nav>
+
+        <div className="p-4 border-t border-slate-100">
+            <button
+                className="flex items-center space-x-3 text-slate-500 hover:text-red-600 w-full px-4 py-2 transition-colors">
+                <LogOut size={18} />
+                <span className="text-sm font-medium">Sair</span>
+            </button>
+        </div>
+    </aside>
+
+    {/* MOBILE HEADER */}
+    <div
+        className="md:hidden fixed w-full bg-white border-b border-slate-200 z-20 px-4 py-3 flex justify-between items-center">
+        <span className="font-bold text-indigo-700">ZapMaster</span>
+        <button onClick={()=> alert('Menu mobile to be implemented')}>
+            <Settings size={20} />
+        </button>
+    </div>
+
+    {/* MAIN CONTENT */}
+    <main className="flex-1 md:ml-64 p-4 md:p-8 mt-12 md:mt-0 h-screen overflow-y-auto">
+
+        {/* HEADER */}
+        {activeView !== 'chat' && (
+        <header className="flex justify-between items-center mb-8">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-800">
+                    {activeView === 'dashboard' && 'Visão Geral'}
+                    {activeView === 'groups' && 'Gestão de Grupos'}
+                    {activeView === 'members' && 'Base de Participantes'}
+                    {activeView === 'settings' && 'Configurações'}
+                </h1>
+                <p className="text-sm text-slate-500 mt-1">
+                    Olá, {data.currentUser.name} • {data.company.name}
+                </p>
+            </div>
+
+            <div className="flex items-center space-x-4">
+                <button className="p-2 relative text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+                    <Bell size={20} />
+                    <span
+                        className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+                <div
+                    className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                    {data.currentUser.name.charAt(0)}
+                </div>
+            </div>
+        </header>
+        )}
+
+        {/* DYNAMIC CONTENT */}
+        <div className="">
+            {activeView === 'dashboard' &&
+            <DashboardView data={data} />}
+            {activeView === 'chat' && (
+            <ChatView chats={data.chats} selectedChatId={selectedChatId} onSelectChat={setSelectedChatId} />
+            )}
+            {activeView === 'groups' && (
+            <GroupsView groups={data.groups} onAddGroup={handleAddGroup} onOpenChat={handleOpenChat} />
+            )}
+            {activeView === 'settings' &&
+            <SettingsView company={data.company} onToggleStatus={handleToggleZapi} />}
+            {activeView === 'members' && (
+            <div className="bg-white p-10 rounded-xl border border-slate-100 text-center animate-fade-in-up">
+                <div className="bg-indigo-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <UserPlus className="text-indigo-600" size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Gestão de Participantes</h3>
+                <p className="text-slate-500 mt-2">Aqui você poderá filtrar participantes por tags e exportar contatos.
+                </p>
+            </div>
+            )}
+        </div>
+
+    </main>
+</div>
+);
+}
