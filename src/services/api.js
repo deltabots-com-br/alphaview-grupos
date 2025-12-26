@@ -212,6 +212,11 @@ export const api = {
         method: 'POST'
     }),
 
+    importGroupMessages: (groupId, limit = 100) => request(`/settings/import-messages/${groupId}`, {
+        method: 'POST',
+        body: { limit }
+    }),
+
     generateWebhookToken: () => request('/webhook/generate-token', {
         method: 'POST'
     })
