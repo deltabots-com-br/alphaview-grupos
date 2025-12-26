@@ -5,9 +5,26 @@ import { config } from './index.js';
 // Create Redis client
 let redisConfig = config.REDIS_URL;
 
-// Handle cases where REDIS_URL might be set to 'default' or be invalid
-if (!redisConfig || redisConfig === 'default') {
-    console.warn('⚠️ REDIS_URL is missing or set to "default". Falling back to localhost:6379');
+// Helper to check if a string is effectively "default" or invalid
+const isInvalidRedisUrl = (url) => {
+    if (!url) return true;
+    if (typeof url !== 'string') return false;
+    const cleanUrl = url.trim();
+    if (cleanUrl === 'default') return true;
+    if (cleanUrl === 'redis://default') return true;
+    if (cleanUrl.includes('@default')) return true; // redis://user:pass@default...
+    try {
+        const urlObj = new URL(cleanUrl);
+        if (urlObj.hostname === 'default') return true;
+    } catch (e) {
+        // Not a valid URL, might be just a host string
+        if (cleanUrl === 'default') return true;
+    }
+    return false;
+};
+
+if (isInvalidRedisUrl(redisConfig)) {
+    console.warn(`⚠️ REDIS_URL is invalid or set to "default" (Value: ${redisConfig}). Falling back to localhost:6379`);
     redisConfig = {
         host: 'localhost',
         port: 6379,
