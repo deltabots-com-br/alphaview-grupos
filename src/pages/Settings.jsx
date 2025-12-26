@@ -14,11 +14,11 @@ const Settings = () => {
     const [importing, setImporting] = useState(false);
 
     // Z-API Settings
-    const [zapiSettings, setZapiSettings] = useState({
-        zapi_server: 'https://api.z-api.io',
-        zapi_instance_id: '',
-        zapi_token: '',
-        zapi_client_token: ''
+    // Evolution API Settings
+    const [evolutionSettings, setEvolutionSettings] = useState({
+        evolution_api_base_url: 'https://api.evolution.com',
+        evolution_api_token: '',
+        evolution_api_instance: ''
     });
 
     // User Form State
@@ -34,7 +34,7 @@ const Settings = () => {
     const currentUser = data?.currentUser || {};
     const isAdmin = currentUser.role === 'admin';
 
-    const webhookUrl = `${window.location.protocol}//${window.location.host}/api/webhook/zapi`;
+    const webhookUrl = `${window.location.protocol}//${window.location.host}/api/webhook/evolution`;
 
     useEffect(() => {
         if (isAdmin) {
@@ -46,21 +46,21 @@ const Settings = () => {
     const loadSettings = async () => {
         try {
             const settings = await api.getSettings();
-            setZapiSettings({
-                zapi_server: settings.zapi_server || 'https://api.z-api.io',
-                zapi_instance_id: settings.zapi_instance_id || '',
-                zapi_token: settings.zapi_token || '',
-                zapi_client_token: settings.zapi_client_token || ''
+            setEvolutionSettings({
+                evolution_api_base_url: settings.evolution_api_base_url || 'https://api.evolution.com',
+                evolution_api_token: settings.evolution_api_token || '',
+                evolution_api_instance: settings.evolution_api_instance || '',
+                webhook_token: settings.webhook_token || '' // Also load webhook token
             });
         } catch (error) {
             console.error('Error loading settings:', error);
         }
     };
 
-    const handleSaveZapiSettings = async () => {
+    const handleSaveSettings = async () => {
         setLoading(true);
         try {
-            await api.updateSettings(zapiSettings);
+            await api.updateSettings(evolutionSettings);
             alert('Configurações salvas com sucesso!');
         } catch (error) {
             alert('Erro ao salvar configurações');
@@ -71,8 +71,8 @@ const Settings = () => {
     };
 
     const handleImportGroups = async () => {
-        if (!zapiSettings.zapi_instance_id || !zapiSettings.zapi_token || !zapiSettings.zapi_client_token) {
-            alert('Configure as credenciais da Z-API primeiro!');
+        if (!evolutionSettings.evolution_api_base_url || !evolutionSettings.evolution_api_token || !evolutionSettings.evolution_api_instance) {
+            alert('Configure as credenciais da Evolution API primeiro!');
             return;
         }
 
@@ -102,8 +102,8 @@ const Settings = () => {
         setLoading(true);
         try {
             const result = await api.generateWebhookToken();
-            setZapiSettings({ ...zapiSettings, webhook_token: result.token });
-            alert('Token gerado com sucesso! Copie e configure na Z-API.');
+            setEvolutionSettings({ ...evolutionSettings, webhook_token: result.token });
+            alert('Token gerado com sucesso! Copie e configure na Evolution API.');
         } catch (error) {
             alert('Erro ao gerar token');
             console.error(error);
@@ -189,25 +189,39 @@ const Settings = () => {
                 </div>
             )}
 
-            {/* Z-API Configuration - Admin Only */}
+            {/* Evolution API Configuration - Admin Only */}
             {isAdmin && (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
                     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <Server size={20} className="text-brand-600" />
-                        Configuração Z-API (WhatsApp)
+                        Configuração Evolution API (WhatsApp)
                     </h3>
 
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
                                 <Globe size={14} />
-                                Servidor Z-API
+                                URL da API
                             </label>
                             <input
                                 type="text"
-                                value={zapiSettings.zapi_server}
-                                onChange={(e) => setZapiSettings({ ...zapiSettings, zapi_server: e.target.value })}
-                                placeholder="https://api.z-api.io"
+                                value={evolutionSettings.evolution_api_base_url}
+                                onChange={(e) => setEvolutionSettings({ ...evolutionSettings, evolution_api_base_url: e.target.value })}
+                                placeholder="https://api.your-evolution.com"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
+                                <Key size={14} />
+                                Global API Key
+                            </label>
+                            <input
+                                type="password"
+                                value={evolutionSettings.evolution_api_token}
+                                onChange={(e) => setEvolutionSettings({ ...evolutionSettings, evolution_api_token: e.target.value })}
+                                placeholder="Global API Key"
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                         </div>
@@ -215,51 +229,22 @@ const Settings = () => {
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
                                 <Server size={14} />
-                                ID da Instância
+                                Nome da Instância
                             </label>
                             <input
                                 type="text"
-                                value={zapiSettings.zapi_instance_id}
-                                onChange={(e) => setZapiSettings({ ...zapiSettings, zapi_instance_id: e.target.value })}
-                                placeholder="3CD723E75E1810AC37A19E692ED0BBB5"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-                                <Key size={14} />
-                                Token
-                            </label>
-                            <input
-                                type="text"
-                                value={zapiSettings.zapi_token}
-                                onChange={(e) => setZapiSettings({ ...zapiSettings, zapi_token: e.target.value })}
-                                placeholder="FE40A4039148B278C6D58A38"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-                                <Key size={14} />
-                                Client Token
-                            </label>
-                            <input
-                                type="text"
-                                value={zapiSettings.zapi_client_token}
-                                onChange={(e) => setZapiSettings({ ...zapiSettings, zapi_client_token: e.target.value })}
-                                placeholder="F1d62cfb33be84863a5600cb29b9ec05eS"
+                                value={evolutionSettings.evolution_api_instance}
+                                onChange={(e) => setEvolutionSettings({ ...evolutionSettings, evolution_api_instance: e.target.value })}
+                                placeholder="MinhaInstancia"
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                         </div>
                     </div>
 
-                    {/* Webhook URL */}
                     <div className="mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                         <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
                             <Webhook size={14} />
-                            URL do Webhook (copie para configurar na Z-API)
+                            URL do Webhook (configure na Evolution API)
                         </label>
                         <div className="flex gap-2">
                             <input
@@ -282,18 +267,18 @@ const Settings = () => {
                     <div className="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
                         <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
                             <Key size={14} />
-                            Token do Webhook (configure na Z-API para autenticar)
+                            Token do Webhook (configure no Header da Evolution API)
                         </label>
                         <div className="flex gap-2 mb-2">
                             <input
                                 type="text"
-                                value={zapiSettings.webhook_token || 'Clique em "Gerar Token"'}
+                                value={evolutionSettings.webhook_token || 'Clique em "Gerar Token"'}
                                 readOnly
                                 className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-mono text-slate-600"
                             />
                             <button
-                                onClick={() => copyToClipboard(zapiSettings.webhook_token || '')}
-                                disabled={!zapiSettings.webhook_token}
+                                onClick={() => copyToClipboard(evolutionSettings.webhook_token || '')}
+                                disabled={!evolutionSettings.webhook_token}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                             >
                                 {copied ? <Check size={16} /> : <Copy size={16} />}
@@ -309,14 +294,14 @@ const Settings = () => {
                             </button>
                         </div>
                         <p className="text-xs text-slate-500">
-                            Configure este token na Z-API com o header: <code className="bg-white px-1 rounded">X-Webhook-Token</code>
+                            Configure este token na Evolution API (Headers) ou na URL. Header: <code className="bg-white px-1 rounded">X-Webhook-Token</code>
                         </p>
                     </div>
 
 
                     <div className="flex gap-2">
                         <button
-                            onClick={handleSaveZapiSettings}
+                            onClick={handleSaveSettings}
                             disabled={loading}
                             className="flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                         >

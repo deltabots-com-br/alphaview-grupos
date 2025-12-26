@@ -6,7 +6,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import { config } from './config/index.js';
 import pool from './config/database.js';
-import redis from './config/redis.js';
+// Redis removed
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -48,15 +48,11 @@ app.get('/health', async (req, res) => {
         // Check database
         await pool.query('SELECT 1');
 
-        // Check Redis
-        await redis.ping();
-
         res.json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
-            database: 'connected',
-            redis: 'connected'
+            database: 'connected'
         });
     } catch (error) {
         res.status(503).json({
@@ -120,6 +116,5 @@ app.listen(PORT, () => {
 process.on('SIGTERM', async () => {
     console.log('SIGTERM received, closing server...');
     await pool.end();
-    await redis.quit();
     process.exit(0);
 });

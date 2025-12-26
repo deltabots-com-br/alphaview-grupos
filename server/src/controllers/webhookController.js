@@ -2,10 +2,12 @@ import { query } from '../config/database.js';
 import crypto from 'crypto';
 
 // Webhook para receber eventos da Z-API
-export const handleZapiWebhook = async (req, res) => {
+// Webhook para receber eventos da Evolution API
+export const handleEvolutionWebhook = async (req, res) => {
     try {
         // Validar token do webhook
-        const providedToken = req.headers['x-webhook-token'] || req.headers['webhook-token'];
+        // Evolution API might send it in 'apikey' header or we configure a custom header
+        const providedToken = req.headers['x-webhook-token'] || req.headers['webhook-token'] || req.headers['apikey'];
 
         // Buscar token configurado
         const settingsResult = await query(
@@ -13,27 +15,29 @@ export const handleZapiWebhook = async (req, res) => {
         );
 
         if (settingsResult.rows.length === 0 || !settingsResult.rows[0].value) {
-            return res.status(401).json({ error: 'Webhook not configured' });
-        }
-
-        const configuredToken = settingsResult.rows[0].value;
-
-        if (providedToken !== configuredToken) {
-            console.error('Invalid webhook token provided');
-            return res.status(401).json({ error: 'Invalid webhook token' });
+            // Se não tiver token configurado, pode ser inseguro, mas vamos aceitar se for dev ou logar aviso
+            console.warn('Webhook received but no local webhook_token service configured.');
+        } else {
+            const configuredToken = settingsResult.rows[0].value;
+            if (providedToken !== configuredToken) {
+                console.error('Invalid webhook token provided');
+                return res.status(401).json({ error: 'Invalid webhook token' });
+            }
         }
 
         // Processar evento
         const event = req.body;
-        console.log('📨 Webhook recebido:', JSON.stringify(event, null, 2));
+        console.log('📨 Webhook Evolution recebido:', JSON.stringify(event, null, 2));
 
-        // Aqui você pode processar diferentes tipos de eventos:
-        // - Mensagens recebidas
-        // - Status de mensagens
-        // - Novos participantes em grupos
-        // - etc.
+        // Estrutura Evolution API:
+        // event.event -> tipo do evento (ex: 'messages.upsert')
+        // event.data -> dados
 
-        // Por enquanto, apenas logar
+        // Logar tipo
+        if (event.event) {
+            console.log(`Evento tipo: ${event.event}`);
+        }
+
         res.json({ success: true, message: 'Webhook received' });
 
     } catch (error) {

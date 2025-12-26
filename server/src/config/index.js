@@ -16,23 +16,16 @@ export const config = {
     DB_NAME: process.env.POSTGRES_DB || process.env.DB_NAME,
     DB_SSL: process.env.DB_SSL === 'true',
 
-    // Redis
-    REDIS_URL: process.env.REDIS_URL,
-    REDIS_HOST: process.env.REDIS_HOST,
-    REDIS_PORT: parseInt(process.env.REDIS_PORT || '6379', 10),
-    REDIS_USERNAME: process.env.REDIS_USERNAME || 'default',
-    REDIS_PASSWORD: process.env.REDIS_PASSWORD,
-
     // JWT
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '15m',
     JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
-    // Z-API
-    ZAPI_BASE_URL: process.env.ZAPI_BASE_URL || 'https://api.z-api.io',
-    ZAPI_INSTANCE_ID: process.env.ZAPI_INSTANCE_ID,
-    ZAPI_TOKEN: process.env.ZAPI_TOKEN,
+    // Evolution API
+    EVOLUTION_API_BASE_URL: process.env.EVOLUTION_API_BASE_URL || 'https://api.evolution.com',
+    EVOLUTION_API_TOKEN: process.env.EVOLUTION_API_TOKEN, // Global API Key
+    EVOLUTION_API_INSTANCE: process.env.EVOLUTION_API_INSTANCE,
 
     // Webhook
     WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
@@ -50,9 +43,8 @@ const requiredEnvVars = [
     'DATABASE_URL',
     'JWT_SECRET',
     'JWT_REFRESH_SECRET',
-    'ZAPI_INSTANCE_ID',
-    'ZAPI_TOKEN',
     'WEBHOOK_SECRET'
+    // Verification of Evolution API vars can be optional if handled dynamically via settings DB
 ];
 
 if (config.NODE_ENV === 'production') {

@@ -45,10 +45,10 @@ export const updateSettings = async (req, res) => {
 // Importar grupos do WhatsApp
 export const importWhatsAppGroups = async (req, res) => {
     try {
-        // Buscar configurações Z-API
+        // Buscar configurações Evolution API
         const settingsResult = await query(
             `SELECT key, value FROM system_settings 
-             WHERE key IN ('zapi_instance_id', 'zapi_token', 'zapi_client_token', 'zapi_server')`
+             WHERE key IN ('evolution_api_base_url', 'evolution_api_token', 'evolution_api_instance')`
         );
 
         const settings = {};
@@ -56,38 +56,37 @@ export const importWhatsAppGroups = async (req, res) => {
             settings[row.key] = row.value;
         });
 
-        if (!settings.zapi_instance_id || !settings.zapi_token || !settings.zapi_client_token) {
-            return res.status(400).json({ error: 'Z-API not configured. Please configure Z-API settings first.' });
+        if (!settings.evolution_api_base_url || !settings.evolution_api_token || !settings.evolution_api_instance) {
+            return res.status(400).json({ error: 'Evolution API not configured. Please configure Evolution API settings first.' });
         }
 
-        const server = settings.zapi_server || 'https://api.z-api.io';
-        const zapiUrl = `${server}/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/groups`;
+        const cleanBaseUrl = settings.evolution_api_base_url.replace(/\/$/, '');
+        const instanceName = settings.evolution_api_instance;
+        const evolutionUrl = `${cleanBaseUrl}/group/fetchAllGroups/${instanceName}?getParticipants=true`;
 
-        // Buscar grupos da Z-API
-        const response = await fetch(zapiUrl, {
+        // Buscar grupos da Evolution API
+        const response = await fetch(evolutionUrl, {
             method: 'GET',
             headers: {
-                'Client-Token': settings.zapi_client_token,
+                'apikey': settings.evolution_api_token,
                 'Content-Type': 'application/json'
             }
         });
 
         if (!response.ok) {
             return res.status(response.status).json({
-                error: `Z-API error: ${response.status} ${response.statusText}`
+                error: `Evolution API error: ${response.status} ${response.statusText}`
             });
         }
 
         const apiResponse = await response.json();
 
-        // Z-API pode retornar array ou objeto
+        // Evolution API usually returns an array of groups directly or inside an object depending on version
         let groups = [];
         if (Array.isArray(apiResponse)) {
             groups = apiResponse;
-        } else if (apiResponse.data) {
+        } else if (Array.isArray(apiResponse.data)) {
             groups = apiResponse.data;
-        } else if (apiResponse.groups) {
-            groups = apiResponse.groups;
         }
 
         if (groups.length === 0) {
@@ -104,14 +103,15 @@ export const importWhatsAppGroups = async (req, res) => {
 
         for (const group of groups) {
             try {
-                const groupId = group.id || group.jid || group.groupId;
-                const groupName = group.subject || group.name || 'Grupo sem nome';
-                const groupDesc = group.description || group.desc || '';
-                const groupImage = group.image || group.pictureUrl || null;
+                // Evolution API field mapping
+                const groupId = group.id || group.jid;
+                const groupName = group.subject || 'Grupo sem nome';
+                const groupDesc = group.description || '';
+                const groupImage = group.pictureUrl || group.groupMetadata?.pictureUrl || null;
 
                 // Verificar se já existe
                 const existing = await query(
-                    'SELECT id FROM conversations WHERE zapi_id = $1',
+                    'SELECT id FROM conversations WHERE zapi_id = $1', // Keeping zapi_id column for now as external_id
                     [groupId]
                 );
 
@@ -134,12 +134,12 @@ export const importWhatsAppGroups = async (req, res) => {
                 const conversationId = result.rows[0].id;
 
                 // Importar participantes
-                const participants = group.participants || group.members || [];
+                const participants = group.participants || [];
                 for (const participant of participants) {
                     try {
-                        const phone = participant.phone || participant.id || participant._serialized;
-                        const name = participant.name || participant.notify || 'Participante';
-                        const isAdmin = participant.isAdmin || participant.admin || false;
+                        const phone = participant.id || participant.user || participant._serialized;
+                        const name = participant.pushName || 'Participante';
+                        const isAdmin = participant.admin === 'admin' || participant.admin === 'superadmin';
 
                         await query(
                             `INSERT INTO participants (conversation_id, phone, display_name, role)
