@@ -4,8 +4,23 @@ import { config } from './index.js';
 const { Pool } = pg;
 
 // Create PostgreSQL connection pool
+const dbConfig = config.DATABASE_URL
+    ? { connectionString: config.DATABASE_URL }
+    : {
+        host: config.DB_HOST,
+        port: config.DB_PORT,
+        user: config.DB_USER,
+        password: config.DB_PASSWORD,
+        database: config.DB_NAME,
+    };
+
+// Add SSL config if needed (or if explicitly requested via env)
+if (config.DB_SSL || (config.NODE_ENV === 'production' && !config.DATABASE_URL)) {
+    dbConfig.ssl = { rejectUnauthorized: false };
+}
+
 export const pool = new Pool({
-    connectionString: config.DATABASE_URL,
+    ...dbConfig,
     max: 20, // Maximum pool size
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,

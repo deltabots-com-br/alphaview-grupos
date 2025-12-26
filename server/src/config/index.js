@@ -9,6 +9,12 @@ export const config = {
 
     // Database
     DATABASE_URL: process.env.DATABASE_URL,
+    DB_HOST: process.env.POSTGRES_HOST || process.env.DB_HOST,
+    DB_PORT: parseInt(process.env.POSTGRES_PORT || process.env.DB_PORT || '5432', 10),
+    DB_USER: process.env.POSTGRES_USER || process.env.DB_USER,
+    DB_PASSWORD: process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD,
+    DB_NAME: process.env.POSTGRES_DB || process.env.DB_NAME,
+    DB_SSL: process.env.DB_SSL === 'true',
 
     // Redis
     REDIS_URL: process.env.REDIS_URL,
