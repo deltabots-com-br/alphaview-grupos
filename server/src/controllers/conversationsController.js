@@ -152,7 +152,7 @@ export const getConversationMembers = async (req, res) => {
              FROM participants p
              LEFT JOIN users u ON p.user_id = u.id
              WHERE p.conversation_id = $1
-             ORDER BY p.joined_at DESC`,
+             ORDER BY p.added_at DESC`,
             [id]
         );
 
@@ -174,8 +174,8 @@ export const addMember = async (req, res) => {
         }
 
         const result = await query(
-            `INSERT INTO participants (conversation_id, user_id, phone, display_name, role)
-             VALUES ($1, $2, $3, $4, 'member')
+            `INSERT INTO participants (conversation_id, user_id, phone, display_name, is_admin)
+             VALUES ($1, $2, $3, $4, false)
              RETURNING *`,
             [id, user_id || null, phone || null, name || null]
         );
