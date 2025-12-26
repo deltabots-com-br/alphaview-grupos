@@ -191,13 +191,13 @@ const GroupDetails = () => {
                                             <td className="py-3 align-top">
                                                 <div className="flex items-start gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0 mt-0.5">
-                                                        {p.name.charAt(0)}
+                                                        {p.name ? p.name.charAt(0).toUpperCase() : '?'}
                                                     </div>
                                                     <div>
-                                                        <p className="font-medium text-slate-800">{p.name}</p>
+                                                        <p className="font-medium text-slate-800">{p.name || 'Sem nome'}</p>
                                                         <div className="flex items-center text-slate-500 text-xs mt-0.5">
                                                             <Phone size={10} className="mr-1" />
-                                                            {p.phone}
+                                                            {p.phone || 'N/A'}
                                                         </div>
                                                     </div>
                                                 </div>
