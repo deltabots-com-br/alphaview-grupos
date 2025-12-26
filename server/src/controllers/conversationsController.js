@@ -148,11 +148,10 @@ export const getConversationMembers = async (req, res) => {
         const { id } = req.params;
 
         const result = await query(
-            `SELECT p.*, u.name as user_name, u.email as user_email
-             FROM participants p
-             LEFT JOIN users u ON p.user_id = u.id
-             WHERE p.conversation_id = $1
-             ORDER BY p.added_at DESC`,
+            `SELECT id, conversation_id, phone, name, is_admin, notes, added_at
+             FROM participants
+             WHERE conversation_id = $1
+             ORDER BY added_at DESC`,
             [id]
         );
 
@@ -167,17 +166,17 @@ export const getConversationMembers = async (req, res) => {
 export const addMember = async (req, res) => {
     try {
         const { id } = req.params;
-        const { phone, name, user_id } = req.body;
+        const { phone, name } = req.body;
 
-        if (!phone && !user_id) {
-            return res.status(400).json({ error: 'Phone or user_id is required' });
+        if (!phone) {
+            return res.status(400).json({ error: 'Phone is required' });
         }
 
         const result = await query(
-            `INSERT INTO participants (conversation_id, user_id, phone, display_name, is_admin)
-             VALUES ($1, $2, $3, $4, false)
+            `INSERT INTO participants (conversation_id, phone, name, is_admin)
+             VALUES ($1, $2, $3, false)
              RETURNING *`,
-            [id, user_id || null, phone || null, name || null]
+            [id, phone, name || null]
         );
 
         res.status(201).json(result.rows[0]);
