@@ -189,7 +189,7 @@ export const importWhatsAppGroups = async (req, res) => {
                                 validParticipants.push({
                                     phone,
                                     name,
-                                    role: isAdmin ? 'admin' : 'member'
+                                    isAdmin // ← BOOLEAN, não string
                                 });
                             }
                         }
@@ -203,11 +203,11 @@ export const importWhatsAppGroups = async (req, res) => {
 
                             const params = [conversationId];
                             validParticipants.forEach(p => {
-                                params.push(p.phone, p.name, p.role);
+                                params.push(p.phone, p.name, p.isAdmin); // ← is_admin é BOOLEAN
                             });
 
                             await query(
-                                `INSERT INTO participants (conversation_id, phone, display_name, role)
+                                `INSERT INTO participants (conversation_id, phone, name, is_admin)
                                  VALUES ${values}
                                  ON CONFLICT DO NOTHING`,
                                 params
