@@ -3,6 +3,7 @@ import { config } from './index.js';
 
 // Create Redis client
 // Create Redis client
+// 1. Try to use REDIS_URL
 let redisConfig = config.REDIS_URL;
 
 // Helper to check if a string is effectively "default" or invalid
@@ -23,12 +24,23 @@ const isInvalidRedisUrl = (url) => {
     return false;
 };
 
+// 2. If valid REDIS_URL is NOT present, check for discrete variables or fallback
 if (isInvalidRedisUrl(redisConfig)) {
-    console.warn(`⚠️ REDIS_URL is invalid or set to "default" (Value: ${redisConfig}). Falling back to localhost:6379`);
-    redisConfig = {
-        host: 'localhost',
-        port: 6379,
-    };
+    if (config.REDIS_HOST && config.REDIS_HOST !== 'default') {
+        console.log(`🔌 Configuring Redis via discrete variables (Host: ${config.REDIS_HOST})`);
+        redisConfig = {
+            host: config.REDIS_HOST,
+            port: config.REDIS_PORT,
+            username: config.REDIS_USERNAME,
+            password: config.REDIS_PASSWORD,
+        };
+    } else {
+        console.warn(`⚠️ REDIS_URL invalid and REDIS_HOST missing. Falling back to localhost:6379`);
+        redisConfig = {
+            host: 'localhost',
+            port: 6379,
+        };
+    }
 } else {
     // Basic obscuring for logs
     const logUrl = typeof redisConfig === 'string'
