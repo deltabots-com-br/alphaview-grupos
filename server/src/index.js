@@ -138,8 +138,49 @@ app.listen(PORT, () => {
 });
 
 // Graceful shutdown
+let isShuttingDown = false;
+
 process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, closing server...');
-    await pool.end();
-    process.exit(0);
+    if (isShuttingDown) {
+        console.log('Already shutting down, ignoring additional SIGTERM');
+        return;
+    }
+
+    isShuttingDown = true;
+    console.log('SIGTERM received, starting graceful shutdown...');
+
+    // Give ongoing operations 10 seconds to complete
+    setTimeout(() => {
+        console.warn('⚠️ Forced shutdown after timeout');
+        process.exit(1);
+    }, 10000);
+
+    try {
+        await pool.end();
+        console.log('✅ Database pool closed gracefully');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        process.exit(1);
+    }
 });
+
+process.on('SIGINT', async () => {
+    if (isShuttingDown) {
+        console.log('Already shutting down, ignoring additional SIGINT');
+        return;
+    }
+
+    isShuttingDown = true;
+    console.log('SIGINT received, starting graceful shutdown...');
+
+    try {
+        await pool.end();
+        console.log('✅ Database pool closed gracefully');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        process.exit(1);
+    }
+});
+

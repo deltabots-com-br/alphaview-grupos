@@ -33,7 +33,7 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
     console.error('❌ Unexpected error on idle client', err);
-    process.exit(-1);
+    // Não fechar o pool aqui, apenas logar o erro
 });
 
 // Helper function for queries
